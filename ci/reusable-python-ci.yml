@@ -1,0 +1,92 @@
+# Reusable workflow de CI para serviços Python/FastAPI do portfólio Re.Group.
+#
+# Gate de PR padronizado: ruff (lint) → mypy (opcional) → pytest. Resolve a
+# fraqueza sistêmica "os testes existem mas não são gate antes do merge".
+#
+# COMO ADOTAR (em cada repo):
+#   1. Copie este arquivo para .github/workflows/_reusable-python-ci.yml
+#      (ou referencie via `uses: m-m-t-a/regroup-observability/.github/...@v0.1.0`
+#       depois de publicar o workflow no repo compartilhado).
+#   2. Crie .github/workflows/ci.yml com o conteúdo de ci/example-caller.yml.
+#   3. Marque o job como required status check em Settings → Branches.
+#
+# Ver ci/example-caller.yml para o chamador.
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+      working-directory:
+        type: string
+        default: "."
+        description: "Raiz do código Python (ex.: 'apps/api' em monorepos)."
+      install-command:
+        type: string
+        default: "pip install -r requirements.txt"
+        description: "Como instalar deps. Ajuste para o projeto."
+      test-command:
+        type: string
+        default: "pytest -q"
+      run-mypy:
+        type: boolean
+        default: false
+        description: "Liga o type-check (projetos com type hints maduros)."
+      needs-postgres:
+        type: boolean
+        default: false
+        description: "Sobe um serviço Postgres 15 e exporta DATABASE_URL."
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    # Postgres condicional: testes de integração que precisam de DB real.
+    services:
+      postgres:
+        image: ${{ inputs.needs-postgres && 'postgres:15' || '' }}
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: ${{ inputs.needs-postgres && 'postgresql://test:test@localhost:5432/test' || '' }}
+      ENVIRONMENT: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          ${{ inputs.install-command }}
+          pip install ruff pytest
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type-check (mypy)
+        if: ${{ inputs.run-mypy }}
+        run: |
+          pip install mypy
+          mypy . || (echo "::warning::mypy reportou erros" && exit 1)
+
+      - name: Testes (gate)
+        run: ${{ inputs.test-command }}

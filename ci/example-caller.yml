@@ -1,0 +1,25 @@
+# Exemplo: .github/workflows/ci.yml de um projeto que adota o CI compartilhado.
+#
+# Copie para cada repo e ajuste os inputs. O gate de testes roda em todo PR
+# para main/develop — chega de "os testes existem mas ninguém roda antes do merge".
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  python-ci:
+    # Após publicar o reusable workflow no repo compartilhado, troque por:
+    #   uses: m-m-t-a/regroup-observability/.github/workflows/reusable-python-ci.yml@v0.1.0
+    uses: ./.github/workflows/_reusable-python-ci.yml
+    with:
+      python-version: "3.12"
+      working-directory: "."          # "apps/api" em monorepos (ex.: my-monorepo)
+      install-command: "pip install -r requirements.txt"
+      test-command: "pytest -q"
+      run-mypy: false                 # ligue em projetos com type hints maduros
+      needs-postgres: false           # ligue onde há testes de integração com DB
