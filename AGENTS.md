@@ -18,6 +18,9 @@ Se um comando falhar por ambiente, diga que não conseguiu validar. Não declare
 ## Objetivo e estrutura
 Pacote pip de observabilidade compartilhada dos serviços FastAPI da Re.Group: logging JSON estruturado com correlação por `request_id`, Sentry com inicialização tolerante e uma terceira lacuna descrita no README. Estrutura: `src/`, `tests/`, `starter/`, `ci/`.
 
+## Consumidores
+Confirmado pelo dono do projeto: `simulador-renegociacao` e `diagnostico-empresas-familiares` / `credito-estruturado` usam este pacote. Mudança de interface pública (nomes de funções, formato do log JSON, campos de `request_id`) quebra esses serviços: ao mudar, avisar e verificar os três.
+
 ## Pendente de preencher pelo dono do projeto
-- Versionamento e quem consome o pacote.
+- Política de versionamento e como os consumidores atualizam.
 - Comando de teste (há `[tool.pytest.ini_options]`).
